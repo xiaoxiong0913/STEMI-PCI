@@ -12,7 +12,7 @@ class PatientDatabase:
     def _init_db(self):
         conn = sqlite3.connect(self.db_name)
         c = conn.cursor()
-        # 创建一个极其通用的表，inputs 存为 JSON 字符串，不再验证具体字段
+        # 通用表结构：inputs 存为 JSON 字符串以适应任何特征组合
         c.execute('''
             CREATE TABLE IF NOT EXISTS records (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -31,31 +31,29 @@ class PatientDatabase:
             c = conn.cursor()
             timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             
-            # 无论输入什么 key，都转为 JSON 字符串存储，彻底避免 Validation Error
+            # 将字典转为 JSON 字符串
             inputs_str = json.dumps(inputs_dict)
             
             c.execute("INSERT INTO records (timestamp, inputs, risk_prob, risk_label) VALUES (?, ?, ?, ?)",
                       (timestamp, inputs_str, prob, label))
             conn.commit()
             conn.close()
-            print(f"INFO: Record added successfully.")
         except Exception as e:
-            print(f"ERROR: Failed to add record to DB: {e}")
+            print(f"DB Error: {e}")
 
-    def get_all_records(self):
+    def fetch_all_records(self):
         try:
             conn = sqlite3.connect(self.db_name)
             df = pd.read_sql_query("SELECT * FROM records ORDER BY timestamp DESC", conn)
             conn.close()
             
-            # 尝试解析 JSON 回去，如果失败则返回原始数据
             if not df.empty and 'inputs' in df.columns:
+                # 尝试解析 JSON 并展开为列
                 try:
                     inputs_df = pd.json_normalize(df['inputs'].apply(json.loads))
                     df = pd.concat([df.drop('inputs', axis=1), inputs_df], axis=1)
                 except:
-                    pass
+                    pass # 如果解析失败，保留原样
             return df
-        except Exception as e:
-            print(f"DB Error: {e}")
+        except Exception:
             return pd.DataFrame()
