@@ -4,13 +4,12 @@ import numpy as np
 import pickle
 import os
 import io
-import matplotlib.pyplot as plt  # 修复：必须显式导入 matplotlib
+import matplotlib.pyplot as plt
 import shap
 import plotly.graph_objects as go
 import datetime
 
 # ================= 1. 引用自定义模块 =================
-# 确保您的 modules 文件夹下有这些文件
 from modules.database import PatientDatabase
 from modules.nlg_generator import ClinicalReportGenerator
 from modules.pdf_report import PDFReportEngine
@@ -32,7 +31,6 @@ def local_css(file_name):
     except FileNotFoundError:
         pass
     
-    # 内置备用样式，防止 CSS 文件丢失导致界面丑陋
     st.markdown("""
     <style>
         html, body, [class*="css"] { font-family: 'Helvetica Neue', sans-serif; font-size: 18px; }
@@ -45,13 +43,11 @@ def local_css(file_name):
     </style>
     """, unsafe_allow_html=True)
 
-# 尝试加载 assets/style.css
 local_css(os.path.join("assets", "style.css"))
 
 # ================= 3. 资源加载 =================
 @st.cache_resource
 def load_system():
-    # 优先查找根目录，其次查找 assets
     paths = [".", "assets"]
     model, scaler = None, None
     
@@ -62,7 +58,7 @@ def load_system():
             try:
                 with open(m_path, 'rb') as f: model = pickle.load(f)
                 with open(s_path, 'rb') as f: scaler = pickle.load(f)
-                break # 找到即停止
+                break
             except Exception as e:
                 st.error(f"Error loading files from {p}: {e}")
     
@@ -72,7 +68,7 @@ model, scaler = load_system()
 db = PatientDatabase()
 
 # === STEMI 核心配置 ===
-THRESHOLD = 0.147  # Cut-off value (Youden Index)
+THRESHOLD = 0.147
 
 # 支架类型定义
 STENT_LABELS = {
@@ -83,7 +79,6 @@ STENT_LABELS = {
 
 # ================= 4. 侧边栏导航 =================
 with st.sidebar:
-    # 尝试显示图标，如果网络不通则显示文字
     try:
         st.image("https://img.icons8.com/color/96/heart-monitor.png", width=80)
     except:
@@ -96,15 +91,13 @@ with st.sidebar:
     if model and scaler:
         st.success("System Online (GBM)")
     else:
-        st.error("System Offline (Missing .pkl files)")
-        st.info("Please verify 'gbm_model.pkl' and 'scaler.pkl' are in the root directory.")
+        st.error("System Offline (Missing .pkl)")
 
 # ================= 5. 页面路由逻辑 =================
 
 # ----------------- PAGE 1: 风险评估 -----------------
 if page == "Risk Assessment":
     
-    # 1. 顶部卡片
     st.markdown(f"""
     <div class='overview-card'>
         <h3 style='margin-bottom:10px; margin-top:0;'>3-Year Mortality Prediction for STEMI Patients (Post-PCI)</h3>
@@ -117,22 +110,18 @@ if page == "Risk Assessment":
     </div>
     """, unsafe_allow_html=True)
 
-    # 2. 输入表单 (8 Features)
     st.markdown("##### Patient Clinical Data")
     with st.form("input_form_stemi"):
-        # 第一行：3个连续变量
         c1, c2, c3 = st.columns(3)
         with c1: age = st.number_input("Age (years)", 20, 100, 65)
         with c2: hb = st.number_input("Hemoglobin (g/L)", 30, 200, 130, help="Normal range: 120-160")
         with c3: ast = st.number_input("AST (U/L)", 5, 2000, 40)
 
-        # 第二行：药物与治疗
         c4, c5, c6 = st.columns(3)
         with c4: beta = st.selectbox("Beta Blocker Use", [0, 1], format_func=lambda x: "Yes" if x==1 else "No")
         with c5: statins = st.selectbox("Statins Use", [0, 1], format_func=lambda x: "Yes" if x==1 else "No")
         with c6: cardio = st.selectbox("Cardiotonics (Inotropes)", [0, 1], format_func=lambda x: "Yes" if x==1 else "No")
 
-        # 第三行：临床状态与手术
         c7, c8, c9 = st.columns(3)
         with c7: resp = st.selectbox("Respiratory Support", [0, 1], format_func=lambda x: "Yes (Ventilation)" if x==1 else "No")
         with c8: stent = st.selectbox("Stent for IRA", [0, 1, 2], format_func=lambda x: STENT_LABELS.get(x, f"Type {x}"))
@@ -142,7 +131,6 @@ if page == "Risk Assessment":
         submitted = st.form_submit_button("🚀 CALCULATE RISK", type="primary")
 
     if submitted and model and scaler:
-        # 构造输入字典
         inputs = {
             'Age': age, 'Hb': hb, 'AST': ast,
             'Respiratory support': resp, 'Beta blocker': beta,
@@ -150,23 +138,13 @@ if page == "Risk Assessment":
         }
         
         try:
-            # === 核心预测逻辑 (混合预处理) ===
-            # 1. 连续变量标准化 [Age, Hb, AST]
             cont_features = np.array([[age, hb, ast]])
             cont_scaled = scaler.transform(cont_features)
-            
-            # 2. 分类变量保持原始值 (必须严格匹配训练顺序)
-            # 顺序: Respiratory, Beta, Cardio, Statins, Stent
             cat_features = np.array([[resp, beta, cardio, statins, stent]])
-            
-            # 3. 拼接 (3+5=8 features)
             final_input = np.hstack((cont_scaled, cat_features))
             
-            # 4. 预测
             prob = model.predict_proba(final_input)[:, 1][0]
             risk_label = "High Risk" if prob >= THRESHOLD else "Low Risk"
-            
-            # 5. 存入数据库
             db.add_record(inputs, prob, risk_label)
             
         except Exception as e:
@@ -179,7 +157,6 @@ if page == "Risk Assessment":
         res_c1, res_c2 = st.columns([1, 1])
         
         with res_c1:
-            # 仪表盘绘制
             gauge_color = "#dc3545" if prob >= THRESHOLD else "#28a745"
             risk_text_color = "red" if prob >= THRESHOLD else "green"
             
@@ -197,29 +174,41 @@ if page == "Risk Assessment":
             fig.update_layout(height=300, margin=dict(l=20,r=20,t=50,b=20))
             st.plotly_chart(fig, use_container_width=True)
 
-        # === SHAP 解释 ===
+        # === 修复后的 SHAP 解释逻辑 ===
         with res_c2:
             st.markdown("**Feature Impact Analysis**")
             with st.spinner("Analyzing risk drivers..."):
                 try:
-                    # GBM 使用 TreeExplainer
                     explainer = shap.TreeExplainer(model)
                     shap_values = explainer.shap_values(final_input)
                     
-                    # 兼容性处理: shape_values 可能是 list 或 array
-                    if isinstance(shap_values, list): sv = shap_values[1][0] 
-                    else: sv = shap_values[0]
-                    
-                    # 基准值处理
-                    if hasattr(explainer, "expected_value"):
-                        base_val = explainer.expected_value
-                        if isinstance(base_val, (list, np.ndarray)): base_val = base_val[1]
+                    # --- 修复核心：更稳健的取值逻辑 ---
+                    sv = None
+                    # 情况 1: List 类型 (常见于 sklearn 二分类，通常是 [负类, 正类])
+                    if isinstance(shap_values, list):
+                        if len(shap_values) > 1:
+                            sv = shap_values[1][0] # 取正类 (index 1)
+                        else:
+                            sv = shap_values[0][0] # 只有一类，直接取
+                    # 情况 2: Numpy Array (常见于 xgboost 或新版 sklearn)
                     else:
-                        base_val = 0.0
+                        if len(shap_values.shape) == 3: # (samples, features, classes)
+                            sv = shap_values[0, :, 1] if shap_values.shape[2] > 1 else shap_values[0, :, 0]
+                        else: # (samples, features)
+                            sv = shap_values[0]
+
+                    # --- 修复核心：Expected Value 同样处理 ---
+                    base_val = 0.0
+                    if hasattr(explainer, "expected_value"):
+                        ev = explainer.expected_value
+                        if isinstance(ev, (list, np.ndarray)):
+                            if len(ev) > 1: base_val = ev[1]
+                            else: base_val = ev[0]
+                        else:
+                            base_val = ev
 
                     feature_names = ['Age', 'Hb', 'AST', 'Respiratory', 'Beta blocker', 'Cardiotonics', 'Statins', 'Stent']
                     
-                    # 构造 Explanation
                     exp = shap.Explanation(
                         values=sv,
                         base_values=base_val,
@@ -227,20 +216,16 @@ if page == "Risk Assessment":
                         feature_names=feature_names
                     )
                     
-                    # 绘图
                     fig_shap, ax = plt.subplots(figsize=(6, 5))
                     shap.plots.waterfall(exp, max_display=8, show=False)
                     st.pyplot(fig_shap, bbox_inches='tight')
                     plt.clf()
 
                 except Exception as shap_err:
-                    st.warning(f"Feature Analysis Unavailable: {shap_err}")
-                    # 创建全零数组作为备用，防止报告生成出错
+                    st.warning(f"SHAP Analysis Unavailable: {shap_err}")
                     sv = [0.0] * 8
 
         st.divider()
-        # 生成报告
-        # 注意: 这里传入 feature_names 列表给报告生成器
         feature_list = ['Age', 'Hb', 'AST', 'Respiratory support', 'Beta blocker', 'Cardiotonics', 'Statins', 'Stent for IRA']
         nlg = ClinicalReportGenerator(inputs, prob, THRESHOLD, sv if isinstance(sv, list) else sv.tolist(), feature_list, 0)
         full_report = nlg.generate_full_report()
@@ -248,7 +233,6 @@ if page == "Risk Assessment":
         with st.expander("📄 View Clinical Report", expanded=True):
             st.markdown(full_report)
         
-        # PDF 下载
         pdf_buffer = io.BytesIO()
         pdf_engine = PDFReportEngine(
             pdf_buffer, 
@@ -326,7 +310,6 @@ elif page == "Clinical Dashboard":
         k1, k2, k3 = st.columns(3)
         k1.metric("Total Assessments", len(df_hist))
         
-        # 计算高危比例
         if 'risk_label' in df_hist.columns:
             high_risk_n = len(df_hist[df_hist['risk_label']=='High Risk'])
             k2.metric("High Risk Ratio", f"{high_risk_n / len(df_hist):.1%}")
@@ -343,7 +326,6 @@ elif page == "Clinical Dashboard":
         with c2:
             st.plotly_chart(analytics.plot_temporal_trend(), use_container_width=True)
             
-        # 额外图表：年龄分布
         st.plotly_chart(analytics.plot_age_distribution(), use_container_width=True)
 
 # ----------------- PAGE 4: 项目介绍 -----------------
@@ -368,7 +350,6 @@ elif page == "Project Introduction":
     8. Stent for IRA
     """)
     
-    # 尝试提供说明书下载
     manual_path = os.path.join("assets", "STEMI_User_Manual.docx")
     if os.path.exists(manual_path):
         with open(manual_path, "rb") as f:
