@@ -98,14 +98,16 @@ with st.sidebar:
 # ----------------- PAGE 1: 风险评估 -----------------
 if page == "Risk Assessment":
     
+    # === [更新] 顶部卡片：补充内部验证数据 ===
     st.markdown(f"""
     <div class='overview-card'>
         <h3 style='margin-bottom:10px; margin-top:0;'>3-Year Mortality Prediction for STEMI Patients (Post-PCI)</h3>
-        <h4 style='margin-bottom:10px; color:#555;'>Model Overview</h4>
-        <p style='font-size:16px; line-height:1.5;'>
-            This tool uses a <b>Gradient Boosting Machine (GBM)</b> model validated on a multicenter cohort.<br>
-            - <b>AUC: 0.801</b> (External Validation)<br>
-            - <b>Risk Threshold: {THRESHOLD:.1%}</b> (Patients ≥ {THRESHOLD:.1%} are classified as High Risk)
+        <h4 style='margin-bottom:10px; color:#555;'>Model Overview (GBM)</h4>
+        <p style='font-size:16px; line-height:1.6;'>
+            This tool is based on a multicenter cohort study (n=2,657).<br>
+            • <b>Internal Validation:</b> AUC <b>0.91</b> | Accuracy <b>93.4%</b><br>
+            • <b>External Validation:</b> AUC <b>0.801</b> (Robust Generalizability)<br>
+            • <b>Risk Threshold: {THRESHOLD:.1%}</b> (Patients ≥ {THRESHOLD:.1%} are classified as High Risk)
         </p>
     </div>
     """, unsafe_allow_html=True)
@@ -174,7 +176,6 @@ if page == "Risk Assessment":
             fig.update_layout(height=300, margin=dict(l=20,r=20,t=50,b=20))
             st.plotly_chart(fig, use_container_width=True)
 
-        # === 修复后的 SHAP 解释逻辑 ===
         with res_c2:
             st.markdown("**Feature Impact Analysis**")
             with st.spinner("Analyzing risk drivers..."):
@@ -182,22 +183,16 @@ if page == "Risk Assessment":
                     explainer = shap.TreeExplainer(model)
                     shap_values = explainer.shap_values(final_input)
                     
-                    # --- 修复核心：更稳健的取值逻辑 ---
                     sv = None
-                    # 情况 1: List 类型 (常见于 sklearn 二分类，通常是 [负类, 正类])
                     if isinstance(shap_values, list):
-                        if len(shap_values) > 1:
-                            sv = shap_values[1][0] # 取正类 (index 1)
-                        else:
-                            sv = shap_values[0][0] # 只有一类，直接取
-                    # 情况 2: Numpy Array (常见于 xgboost 或新版 sklearn)
+                        if len(shap_values) > 1: sv = shap_values[1][0]
+                        else: sv = shap_values[0][0]
                     else:
-                        if len(shap_values.shape) == 3: # (samples, features, classes)
+                        if len(shap_values.shape) == 3: 
                             sv = shap_values[0, :, 1] if shap_values.shape[2] > 1 else shap_values[0, :, 0]
-                        else: # (samples, features)
+                        else: 
                             sv = shap_values[0]
 
-                    # --- 修复核心：Expected Value 同样处理 ---
                     base_val = 0.0
                     if hasattr(explainer, "expected_value"):
                         ev = explainer.expected_value
@@ -331,13 +326,15 @@ elif page == "Clinical Dashboard":
 # ----------------- PAGE 4: 项目介绍 -----------------
 elif page == "Project Introduction":
     st.title("STEMI 3-Year Mortality Prediction")
+    # === [更新] 项目介绍页：补充内部验证数据 ===
     st.markdown("""
     ### Study Abstract
     **Objective:** To construct and validate a machine learning model for predicting all-cause mortality at three years after PCI in STEMI patients.
     
     **Methods:** - **Cohort:** Multicenter study (Wuhan, Yichang, Enshi) involving 2,657 patients.
     - **Model:** Gradient Boosting Machine (GBM) was selected as the optimal model.
-    - **Performance:** Achieved an **AUC of 0.801** in the independent external validation cohort.
+    - **Performance:** - **Internal Validation:** AUC **0.91**, Accuracy **93.4%**
+        - **External Validation:** AUC **0.801**
     
     **Key Predictors:**
     1. Respiratory Support
