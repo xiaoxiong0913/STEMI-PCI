@@ -3,48 +3,33 @@ html, body, [class*="css"] {
     font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
 }
 
-/* 协议卡片样式 (Protocol Note) */
-.protocol-card {
-    padding: 1rem;
-    border-radius: 0.5rem;
-    margin-bottom: 1rem;
-    background-color: #ffffff;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    border: 1px solid #e0e0e0;
-}
-
-/* 信息提示框 (蓝色左边框) */
-.info-card {
-    border-left: 5px solid #17a2b8;
+/* 侧边栏样式 */
+[data-testid="stSidebar"] {
     background-color: #f8f9fa;
 }
 
-/* 警告提示框 (黄色左边框) */
-.warning-card {
-    border-left: 5px solid #ffc107;
-    background-color: #fff3cd;
+/* 标题样式 */
+h1 {
+    color: #0d47a1; /* Medical Blue */
+    font-weight: 700;
 }
 
-/* 高危提示框 (红色左边框) */
-.critical-card {
-    border-left: 5px solid #dc3545;
-    background-color: #f8d7da;
+h3 {
+    color: #1565c0;
+    border-bottom: 2px solid #e3f2fd;
+    padding-bottom: 10px;
 }
 
-/* 安全提示框 (绿色左边框) */
-.safe-card {
-    border-left: 5px solid #28a745;
-    background-color: #d4edda;
-}
-
-/* 调整侧边栏的标题大小 */
-[data-testid="stSidebar"] h1 {
-    font-size: 2rem;
-    color: #003366;
-}
-
-/* 调整按钮样式 */
-div.stButton > button:first-child {
+/* 按钮优化 - 充满宽度 */
+div.stButton > button {
+    width: 100%;
+    border-radius: 5px;
+    height: 3em;
     font-weight: bold;
+}
+
+/* 成功/危险提示框微调 */
+[data-testid="stNotification"] {
     border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
