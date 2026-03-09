@@ -68,7 +68,7 @@ model, scaler = load_system()
 db = PatientDatabase()
 
 # === STEMI 核心配置 ===
-THRESHOLD = 0.147
+THRESHOLD = 0.119
 
 # 支架类型定义
 STENT_LABELS = {
@@ -357,4 +357,5 @@ elif page == "Project Introduction":
 # --- Footer ---
 st.markdown("---")
 st.markdown("<div style='text-align: center; color: #888; font-size: 0.8em;'>© 2026 Clinical AI Lab. For Research Use Only.</div>", unsafe_allow_html=True)
+
 
